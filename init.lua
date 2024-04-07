@@ -144,15 +144,16 @@ vim.opt.splitbelow = true
 --  and `:help 'listchars'`
 vim.opt.list = true
 vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
---vim.opt.editorconfig_indent_size = 2
---vim.opt.editorconfig_indent_style = 'space'
---vim.opt.tab_width = 2
---vim.opt.indent_style = 'space'
---vim.opt.indent_size = 2
-vim.o.expandtab = true
-vim.o.smarttab = true
-vim.o.tabstop = 2
-vim.o.shiftwidth = 2
+
+vim.go.tab_width = 2
+vim.go.indent_style = 'space'
+vim.go.indent_size = 2
+vim.go.expandtab = true
+vim.go.smarttab = true
+vim.go.tabstop = 2
+vim.go.shiftwidth = 2
+
+vim.api.nvim_buf_set_option(0, 'expandtab', true)
 
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
@@ -174,7 +175,13 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous [D]iagnostic message' })
 vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next [D]iagnostic message' })
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Show diagnostic [E]rror messages' })
-vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+vim.keymap.set('n', '<leader>fq', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+function lspquickfix()
+  vim.lsp.buf.code_action { 'quickfix' }
+end
+
+vim.keymap.set('n', '<leader>ff', lspquickfix, { desc = 'Open diagnostic [Q]uickfix list' })
 
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -213,6 +220,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+vim.api.nvim_create_autocmd('VimEnter', {
+  pattern = '*',
+  group = vim.api.nvim_create_augroup('NeotreeOnOpen', { clear = true }),
+  once = true,
+  callback = function(_)
+    if vim.fn.argc() == 0 then
+      vim.cmd 'Neotree'
+    end
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -236,6 +254,16 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+
+  {
+    'm4xshen/autoclose.nvim',
+    opts = {},
+  },
+
+  {
+    'pocco81/auto-save.nvim',
+    opts = {}
+  },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -274,6 +302,47 @@ require('lazy').setup({
         'MunifTanjim/nui.nvim',
         -- "3rd/image.nvim", -- Optional image support in preview window: See `# Preview Mode` for more information
       },
+      config = function()
+        require('neo-tree').setup {
+          sources = { 'filesystem', 'buffers', 'git_status', 'document_symbols' },
+          open_files_do_not_replace_types = { 'terminal', 'Trouble', 'qf', 'Outline' },
+          filesystem = {
+            bind_to_cwd = false,
+            follow_current_file = { enabled = true },
+            use_libuv_file_watcher = true,
+            filtered_items = {
+              visible = true,
+              hide_dotfiles = false,
+              hide_gitignore = false,
+            },
+            window = {
+              mappings = {
+                ['.'] = 'toggle_hidden',
+                ['l'] = 'open',
+                ['L'] = 'open_nofocus',
+                ['P'] = 'focus_preview',
+                ['H'] = 'set_root',
+              },
+            },
+          },
+          window = {
+            mappings = {
+              ['.'] = 'toggle_hidden', -- For testing This dont belong here
+              ['<space>'] = 'none',
+              ['l'] = 'open',
+              ['h'] = 'close_node',
+            },
+          },
+          buffers = {
+            follow_current_file = {
+              enabled = true, -- This will find and focus the file in the active buffer every time
+              --              -- the current file is changed while the tree is open.
+              leave_dirs_open = false, -- `false` closes auto expanded dirs, such as with `:Neotree reveal`
+            },
+          },
+        }
+        vim.cmd [[nnoremap \ :Neotree reveal<cr>]]
+      end,
     },
   },
 
@@ -558,7 +627,7 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         -- clangd = {},
-        gopls = {},
+        -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
@@ -810,7 +879,7 @@ require('lazy').setup({
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     opts = {
-      ensure_installed = { 'bash', 'c', 'html', 'lua', 'luadoc', 'markdown', 'vim', 'vimdoc', 'go' },
+      ensure_installed = { 'bash', 'c', 'html', 'lua', 'luadoc', 'markdown', 'vim', 'vimdoc' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -820,7 +889,7 @@ require('lazy').setup({
         --  the list of additional_vim_regex_highlighting and disabled languages for indent.
         additional_vim_regex_highlighting = { 'ruby' },
       },
-      indent = { enable = true, disable = { 'ruby' } },
+      indent = { enable = false, disable = { 'ruby' } },
     },
     config = function(_, opts)
       -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
